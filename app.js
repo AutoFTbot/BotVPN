@@ -2373,6 +2373,7 @@ if (!global.pendingDeposits) {
 async function checkQRISStatus() {
   try {
     const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
+    const GROUP_ID = vars.GROUP_ID;
     
     if (!global.pendingDeposits || Object.keys(global.pendingDeposits).length === 0) {
       return;
@@ -2427,6 +2428,18 @@ async function checkQRISStatus() {
                             `🏦 Bank: ${response.data.brand_name}\n` +
                             `🔖 Ref: ${response.data.issuer_reff}\n` +
                             `👤 Pembayar: ${response.data.buyer_reff.split('/')[1].trim()}`,
+                            { parse_mode: 'Markdown' }
+                          );
+
+                          const userInfo = await bot.telegram.getChat(deposit.userId);
+                          const username = userInfo.username ? `@${userInfo.username}` : `${userInfo.first_name}`;
+                          
+                          await bot.telegram.sendMessage(GROUP_ID,
+                            `💰 *DEPOSIT BERHASIL!*\n\n` +
+                            `👤 User: ${username}\n` +
+                            `💳 Nominal Deposit: Rp ${deposit.originalAmount}\n` +
+                            `🏦 Bank: ${response.data.brand_name}\n` +
+                            `🤖 ${NAMA_STORE}`,
                             { parse_mode: 'Markdown' }
                           );
                           
