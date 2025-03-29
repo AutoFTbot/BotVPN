@@ -91,25 +91,39 @@ server_app() {
             echo -e "${red}Admin ID tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
-        while [ -z "$namastore" ]; do
+    while [ -z "$namastore" ]; do
         read -p "Masukkan nama store: " namastore
         if [ -z "$namastore" ]; then
             echo -e "${red}Nama store tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
-        while [ -z "$keypaydisini" ]; do
-        read -p "Masukkan Keypaydisni: " keypaydisini
-        if [ -z "$keypaydisini" ]; then
-            echo -e "${red}Nama keypaydisini tidak boleh kosong. Silakan coba lagi.${neutral}"
+    while [ -z "$dataqris" ]; do
+        read -p "Masukkan DATA QRIS: " dataqris
+        if [ -z "$dataqris" ]; then
+            echo -e "${red}DATA QRIS tidak boleh kosong. Silakan coba lagi.${neutral}"
+        fi
+    done
+    while [ -z "$merchantid" ]; do
+        read -p "Masukkan MERCHANT ID: " merchantid
+        if [ -z "$merchantid" ]; then
+            echo -e "${red}MERCHANT ID tidak boleh kosong. Silakan coba lagi.${neutral}"
+        fi
+    done
+    while [ -z "$apikey" ]; do
+        read -p "Masukkan API KEY: " apikey
+        if [ -z "$apikey" ]; then
+            echo -e "${red}API KEY tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
     rm -f /root/BotVPN/.vars.json
     echo "{
   \"BOT_TOKEN\": \"$token\",
   \"USER_ID\": \"$adminid\",
-  \"PAYDISINI_KEY\": \"$keypaydisini\",
   \"NAMA_STORE\": \"$namastore\",
-  \"PORT\": \"50123\"
+  \"PORT\": \"50123\",
+  \"DATA_QRIS\": \"$dataqris\",
+  \"MERCHANT_ID\": \"$merchantid\",
+  \"API_KEY\": \"$apikey\"
 }" >/root/BotVPN/.vars.json
     cat >/etc/systemd/system/sellvpn.service <<EOF
 [Unit]
