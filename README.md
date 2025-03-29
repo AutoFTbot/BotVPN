@@ -35,7 +35,7 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
    ```
 3. Install dependencies:
    ```bash
-   npm i sqlite3 express crypto telegraf axios dotenv
+   npm i sqlite3 express telegraf axios dotenv
    ```
 4. Siapkan konfigurasi di `.vars.json`:
    ```json
