@@ -2403,8 +2403,6 @@ async function checkQRISStatus() {
               }
             });
 
-            console.log('Response from QRIS status check:', response.data);
-
             if (response.data && parseInt(response.data.amount) === deposit.amount && response.data.type === 'CR') {
               await new Promise((resolve, reject) => {
                 db.run("UPDATE users SET saldo = saldo + ? WHERE user_id = ?", 
