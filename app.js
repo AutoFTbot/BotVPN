@@ -2380,6 +2380,11 @@ async function checkQRISStatus() {
     }
     
     for (const [uniqueCode, deposit] of Object.entries(global.pendingDeposits)) {
+      if (!global.pendingDeposits[uniqueCode]) {
+        console.log(`Entri untuk uniqueCode: ${uniqueCode} sudah diproses sebelumnya.`);
+        continue;
+      }
+
       if (deposit && deposit.status === 'pending') {
         let retryCount = 0;
         const maxRetries = 3;
@@ -2443,8 +2448,10 @@ async function checkQRISStatus() {
                             { parse_mode: 'Markdown' }
                           );
                           
-                          delete global.pendingDeposits[uniqueCode];
                           console.log(`✅ Payment processed successfully for user ${deposit.userId}`);
+                          console.log(`Deleting entry for uniqueCode: ${uniqueCode}`);
+                          delete global.pendingDeposits[uniqueCode];
+                          console.log(`Current pending deposits:`, global.pendingDeposits);
                           resolve();
                         } catch (error) {
                           console.error('Error sending notification:', error);
