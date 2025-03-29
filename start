@@ -115,6 +115,12 @@ server_app() {
             echo -e "${red}API KEY tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
+    while [ -z "$groupid" ]; do
+        read -p "Masukkan GROUP ID: " groupid
+        if [ -z "$groupid" ]; then
+            echo -e "${red}GROUP ID tidak boleh kosong. Silakan coba lagi.${neutral}"
+        fi
+    done
     rm -f /root/BotVPN/.vars.json
     echo "{
   \"BOT_TOKEN\": \"$token\",
@@ -123,7 +129,8 @@ server_app() {
   \"PORT\": \"50123\",
   \"DATA_QRIS\": \"$dataqris\",
   \"MERCHANT_ID\": \"$merchantid\",
-  \"API_KEY\": \"$apikey\"
+  \"API_KEY\": \"$apikey\",
+  \"GROUP_ID\": \"$groupid\"
 }" >/root/BotVPN/.vars.json
     cat >/etc/systemd/system/sellvpn.service <<EOF
 [Unit]
