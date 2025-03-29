@@ -1,6 +1,7 @@
 const os = require('os');
 const sqlite3 = require('sqlite3').verbose();
 const express = require('express');
+const crypto = require('crypto');
 const { Telegraf, Scenes, session } = require('telegraf');
 
 const app = express();
@@ -2425,7 +2426,7 @@ async function checkQRISStatus() {
                             `📝 Detail Pembayaran:\n` +
                             `🏦 Bank: ${response.data.brand_name}\n` +
                             `🔖 Ref: ${response.data.issuer_reff}\n` +
-                            `👤 Pembayar:: ${response.data.buyer_reff.split('/')[0]}`,
+                            `👤 Pembayar: ${response.data.buyer_reff.split('/')[1].trim()}`,
                             { parse_mode: 'Markdown' }
                           );
                           
