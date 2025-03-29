@@ -56,7 +56,7 @@ setup_bot() {
     fi
 
     if [ ! -f /root/BotVPN/app.js ]; then
-        git clone https://github.com/FighterTunnel/BotVPN.git /root/BotVPN
+        git clone https://github.com/AutoFTbot/BotVPN.git /root/BotVPN
     fi
 
     if ! npm list --prefix /root/BotVPN express telegraf axios moment sqlite3 >/dev/null 2>&1; then
