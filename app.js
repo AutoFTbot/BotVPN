@@ -15,7 +15,7 @@ const { renewssh, renewvmess, renewvless, renewtrojan, renewshadowsocks } = requ
 const fs = require('fs');
 const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
 
-const PAYDISINI_KEY = vars.PAYDISINI_KEY;
+const DATA_QRIS = vars.DATA_QRIS;
 const BOT_TOKEN = vars.BOT_TOKEN;
 const port = vars.PORT || 50123;
 const ADMIN = vars.USER_ID; 
@@ -979,14 +979,12 @@ bot.on('text', async (ctx) => {
               msg = await renewssh(username, exp, iplimit, serverId);
             }
           }
-          // Kurangi saldo pengguna
           db.run('UPDATE users SET saldo = saldo - ? WHERE user_id = ?', [totalHarga, ctx.from.id], (err) => {
             if (err) {
               console.error('⚠️ Kesalahan saat mengurangi saldo pengguna:', err.message);
               return ctx.reply('❌ *Terjadi kesalahan saat mengurangi saldo pengguna.*', { parse_mode: 'Markdown' });
             }
           });
-          // Tambahkan total_create_akun
           db.run('UPDATE Server SET total_create_akun = total_create_akun + 1 WHERE id = ?', [serverId], (err) => {
             if (err) {
               console.error('⚠️ Kesalahan saat menambahkan total_create_akun:', err.message);
@@ -1332,7 +1330,7 @@ bot.action('addsaldo_user', async (ctx) => {
       buttons.push(row);
     }
 
-    const currentPage = 0; // Halaman saat ini
+    const currentPage = 0;
     const replyMarkup = {
       inline_keyboard: [...buttons]
     };
@@ -1355,7 +1353,7 @@ bot.action('addsaldo_user', async (ctx) => {
 });
 bot.action(/next_users_(\d+)/, async (ctx) => {
   const currentPage = parseInt(ctx.match[1]);
-  const offset = currentPage * 20; // Menghitung offset berdasarkan halaman saat ini
+  const offset = currentPage * 20;
 
   try {
     console.log(`Next users process started for page ${currentPage + 1}`);
@@ -1403,7 +1401,6 @@ bot.action(/next_users_(\d+)/, async (ctx) => {
       inline_keyboard: [...buttons]
     };
 
-    // Menambahkan tombol navigasi
     const navigationButtons = [];
     if (currentPage > 0) {
       navigationButtons.push([{
@@ -2032,8 +2029,8 @@ async function handleDepositState(ctx, userId, data) {
     if (currentAmount.length === 0) {
       return await ctx.answerCbQuery('⚠️ Jumlah tidak boleh kosong!', { show_alert: true });
     }
-    if (parseInt(currentAmount) < 200) {
-      return await ctx.answerCbQuery('⚠️ Jumlah minimal adalah 200 perak!', { show_alert: true });
+    if (parseInt(currentAmount) < 100) {
+      return await ctx.answerCbQuery('⚠️ Jumlah minimal adalah 100 perak!', { show_alert: true });
     }
     global.depositState[userId].action = 'confirm_amount';
     await processDeposit(ctx, currentAmount);
@@ -2231,71 +2228,97 @@ async function updateServerField(serverId, value, query) {
 global.depositState = {};
 let lastRequestTime = 0;
 const requestInterval = 1000; 
+
+function generateRandomAmount(baseAmount) {
+  const random = Math.floor(Math.random() * 99) + 1; 
+  return baseAmount + random;
+}
+
 async function processDeposit(ctx, amount) {
   const currentTime = Date.now();
   
   if (currentTime - lastRequestTime < requestInterval) {
-      return ctx.reply('⚠️ *Terlalu banyak permintaan. Silakan tunggu sebentar sebelum mencoba lagi.*', { parse_mode: 'Markdown' });
+    return ctx.reply('⚠️ *Terlalu banyak permintaan. Silakan tunggu sebentar sebelum mencoba lagi.*', { parse_mode: 'Markdown' });
   }
 
   lastRequestTime = currentTime;
   const userId = ctx.from.id;
   const uniqueCode = `user-${userId}-${Date.now()}`;
-  const key = PAYDISINI_KEY;
-  const service = '11';
-  const note = 'Deposit saldo';
-  const validTime = '1800';
-  const typeFee = '1';
-  const signatureString = `${key}${uniqueCode}${service}${amount}${validTime}NewTransaction`;
-  const signature = crypto.createHash('md5').update(signatureString).digest('hex');
-
-  console.log('🔍 Membuat signature untuk transaksi:', signatureString);
+  
+  const finalAmount = generateRandomAmount(parseInt(amount));
 
   if (!global.pendingDeposits) {
     global.pendingDeposits = {};
   }
-  global.pendingDeposits[uniqueCode] = { amount, userId };
+  global.pendingDeposits[uniqueCode] = { amount: finalAmount, userId };
 
-  try {
-    const response = await axios.post('https://api.paydisini.co.id/v1/', new URLSearchParams({
-      key,
-      request: 'new',
-      unique_code: uniqueCode,
-      service,
-      amount: amount,
-      note,
-      valid_time: validTime,
-      type_fee: typeFee,
-      payment_guide: true,
-      signature,
-    }), {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      }
-    });
+  const maxRetries = 3;
+  let lastError = null;
 
-    console.log('🔍 Mengirim permintaan deposit ke PayDisini:', response.config.data);
-
-    if (response.data.success) {
-      const { data } = response.data;
-      const qrcodeUrl = data.qrcode_url;
-
-      await ctx.replyWithPhoto(qrcodeUrl, {
-        caption: `🌟 *Informasi Deposit Anda* 🌟\n\n💼 *Jumlah:* Rp ${amount}\n🎉 *Segera selesaikan pembayaran Anda untuk menikmati saldo baru!*`,
-        parse_mode: 'Markdown'
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await axios.get(`http://orkut.cekid.games/qris/generate`, {
+        params: {
+          nominal: finalAmount,
+          qris: DATA_QRIS
+        },
+        headers: {
+          'Accept': 'image/png',
+          'Origin': 'http://orkut.cekid.games',
+          'Referer': 'http://orkut.cekid.games',
+          'User-Agent': 'Mozilla/5.0',
+          'Connection': 'keep-alive'
+        },
+        responseType: 'arraybuffer',
+        timeout: 30000,
+        maxRedirects: 5,
+        validateStatus: function (status) {
+          return status >= 200 && status < 500;
+        }
       });
-      console.log(`✅ Permintaan deposit berhasil untuk user ${userId}, jumlah: Rp ${amount}`);
-    } else {
-      console.error('⚠️ Permintaan deposit gagal:', response.data.message);
-      await ctx.reply(`⚠️ *Permintaan deposit gagal:* ${response.data.message}`, { parse_mode: 'Markdown' });
-    }
-  } catch (error) {
-    console.error('❌ Kesalahan saat mengirim permintaan deposit:', error);
-    await ctx.reply('❌ *Terjadi kesalahan saat mengirim permintaan deposit. Silakan coba lagi nanti.*', { parse_mode: 'Markdown' });
-  } finally {
 
-    delete global.depositState[userId];
+      if (response.data) {
+        // Kirim QR Code ke user
+        await ctx.reply('💰 *Silakan scan QR Code berikut untuk melakukan pembayaran:*', {
+          parse_mode: 'Markdown'
+        });
+        await ctx.replyWithPhoto({ source: Buffer.from(response.data) }, {
+          caption: `📝 *Detail Pembayaran:*\n\n` +
+                  `💰 Jumlah: Rp ${finalAmount}\n` +
+                  `⚠️ *Penting:* Mohon transfer sesuai nominal\n` +
+                  `⏱️ Waktu: 30 menit\n\n` +
+                  `⚠️ *Catatan:*\n` +
+                  `- Pembayaran akan otomatis terverifikasi\n` +
+                  `- Jangan tutup halaman ini\n` +
+                  `- Jika pembayaran berhasil, saldo akan otomatis ditambahkan`,
+          parse_mode: 'Markdown'
+        });
+        global.pendingDeposits[uniqueCode] = {
+          amount: finalAmount,
+          originalAmount: amount,
+          userId,
+          timestamp: Date.now(),
+          status: 'pending'
+        };
+        delete global.depositState[userId];
+        return;
+      }
+    } catch (error) {
+      lastError = error;
+      console.error(`Attempt ${attempt + 1} failed:`, error.message);
+      
+      if (attempt < maxRetries - 1) {
+        const delay = Math.pow(2, attempt) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+    }
   }
+
+  console.error('❌ Kesalahan saat memproses deposit setelah', maxRetries, 'percobaan:', lastError);
+  await ctx.reply('❌ *GAGAL! Terjadi kesalahan saat memproses pembayaran. Silakan coba lagi nanti.*', { parse_mode: 'Markdown' });
+  delete global.depositState[userId];
+  delete global.pendingDeposits[uniqueCode];
 }
 
 function keyboard_abc() {
@@ -2343,75 +2366,107 @@ function keyboard_full() {
   return buttons;
 }
 
-app.post('/callback/paydisini', async (req, res) => {
-  console.log('Request body:', req.body); // Log untuk debugging
-  const { unique_code, status } = req.body;
+if (!global.pendingDeposits) {
+  global.pendingDeposits = {};
+}
 
-  if (!unique_code || !status) {
-      return res.status(400).send('⚠️ *Permintaan tidak valid*');
-  }
-
-  const depositInfo = global.pendingDeposits[unique_code];
-  if (!depositInfo) {
-      return res.status(404).send('Jumlah tidak ditemukan untuk kode unik');
-  }
-
-  const amount = depositInfo.amount;
-  const userId = depositInfo.userId;
-
+async function checkQRISStatus() {
   try {
-      const [prefix, user_id] = unique_code.split('-');
-      if (prefix !== 'user' || !user_id) {
-          return res.status(400).send('Format kode unik tidak valid');
-      }
-
-      if (status === 'Success') {
-
-          db.run("UPDATE users SET saldo = saldo + ? WHERE user_id = ?", [amount, user_id], function(err) {
-              if (err) {
-                  console.error(`Kesalahan saat memperbarui saldo untuk user_id: ${user_id}, amount: ${JSON.stringify(amount)}`, err.message);
-                  return res.status(500).send('Kesalahan saat memperbarui saldo');
+    const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
+    
+    if (!global.pendingDeposits || Object.keys(global.pendingDeposits).length === 0) {
+      return;
+    }
+    
+    for (const [uniqueCode, deposit] of Object.entries(global.pendingDeposits)) {
+      if (deposit && deposit.status === 'pending') {
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+          try {
+            const response = await axios.get(`http://orkut.cekid.games/qris/cekstatus`, {
+              params: {
+                merchant: vars.MERCHANT_ID,
+                keyorkut: vars.API_KEY
+              },
+              timeout: 10000,
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
               }
-              console.log(`✅ Saldo berhasil diperbarui untuk user_id: ${user_id}, amount: ${JSON.stringify(amount)}`);
+            });
 
-              delete global.pendingDeposits[unique_code];
+            console.log('Response from QRIS status check:', response.data);
 
-              db.get("SELECT saldo FROM users WHERE user_id = ?", [user_id], (err, row) => {
-                  if (err) {
-                      console.error('⚠️ Kesalahan saat mengambil saldo terbaru:', err.message);
-                      return res.status(500).send('⚠️ Kesalahan saat mengambil saldo terbaru');
-                  }
-                  const newSaldo = row.saldo;
-                  const message = `✅ Deposit berhasil!\n\n💰 Jumlah: Rp ${amount}\n💵 Saldo sekarang: Rp ${newSaldo}`;
-                
-                  const telegramUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-                  axios.post(telegramUrl, {
-                      chat_id: user_id,
-                      text: message
-                  }).then(() => {
-                      console.log(`✅ Pesan konfirmasi deposit berhasil dikirim ke ${user_id}`);
-                      return res.status(200).send('✅ *Saldo berhasil ditambahkan*');
-                  }).catch((error) => {
-                      console.error(`⚠️ Kesalahan saat mengirim pesan ke Telegram untuk user_id: ${user_id}`, error.message);
-                      return res.status(500).send('⚠️ *Kesalahan saat mengirim pesan ke Telegram*');
-                  });
+            if (response.data && parseInt(response.data.amount) === deposit.amount && response.data.type === 'CR') {
+              await new Promise((resolve, reject) => {
+                db.run("UPDATE users SET saldo = saldo + ? WHERE user_id = ?", 
+                  [deposit.originalAmount, deposit.userId], 
+                  async function(err) {
+                    if (err) {
+                      console.error('Error updating balance:', err);
+                      reject(err);
+                      return;
+                    }
+                    db.get("SELECT saldo FROM users WHERE user_id = ?", [deposit.userId], 
+                      async (err, row) => {
+                        if (err) {
+                          console.error('Error getting updated balance:', err);
+                          reject(err);
+                          return;
+                        }
+
+                        try {
+                          await bot.telegram.sendMessage(deposit.userId, 
+                            `✅ *Pembayaran Berhasil!*\n\n` +
+                            `💰 Nominal: Rp ${deposit.amount}\n` +
+                            `💳 Saldo ditambahkan: Rp ${deposit.originalAmount}\n` +
+                            `🏦 Saldo sekarang: Rp ${row.saldo}\n\n` +
+                            `📝 Detail Pembayaran:\n` +
+                            `🏦 Bank: ${response.data.brand_name}\n` +
+                            `🔖 Ref: ${response.data.issuer_reff}\n` +
+                            `👤 Pembayar:: ${response.data.buyer_reff.split('/')[0]}`,
+                            { parse_mode: 'Markdown' }
+                          );
+                          
+                          delete global.pendingDeposits[uniqueCode];
+                          console.log(`✅ Payment processed successfully for user ${deposit.userId}`);
+                          resolve();
+                        } catch (error) {
+                          console.error('Error sending notification:', error);
+                          reject(error);
+                        }
+                    });
+                });
               });
-          });
-      } else {
-          console.log(`⚠️ Penambahan saldo gagal untuk unique_code: ${unique_code}`);
-          return res.status(200).send('⚠️ Penambahan saldo gagal');
+              break;
+            }
+          } catch (error) {
+            console.error(`Attempt ${retryCount + 1} failed:`, error.message);
+            retryCount++;
+            
+            if (retryCount === maxRetries) {
+              console.error(`Max retries reached for deposit ${uniqueCode}`);
+              break;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
       }
+    }
   } catch (error) {
-      console.error('⚠️ Kesalahan saat memproses penambahan saldo:', error.message);
-      return res.status(500).send('⚠️ Kesalahan saat memproses penambahan saldo');
+    console.error('Error in checkQRISStatus:', error);
   }
-});
+}
+setInterval(checkQRISStatus, 30000);
 
 app.listen(port, () => {
-    bot.launch().then(() => {
-        console.log('Bot telah dimulai');
-    }).catch((error) => {
-        console.error('Error saat memulai bot:', error);
-    });
-    console.log(`Server berjalan di port ${port}`);
+  bot.launch().then(() => {
+      console.log('Bot telah dimulai');
+  }).catch((error) => {
+      console.error('Error saat memulai bot:', error);
+  });
+  console.log(`Server berjalan di port ${port}`);
 });
