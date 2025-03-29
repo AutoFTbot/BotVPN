@@ -57,9 +57,9 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
 ## Konfigurasi QRIS
 
 Untuk menggunakan sistem pembayaran QRIS, Anda perlu menyiapkan:
-1. DATA QRIS: String QRIS yang valid dari penyedia QRIS Anda
-2. MERCHANT ID: ID merchant yang terdaftar
-3. API KEY: Kunci API untuk mengakses layanan QRIS
+1. DATA QRIS: Data Qris bisa diambil dari web https://scanqr.org/, Dengan mengupload Qris anda dan menyalin hasil scan datanya
+2. MERCHANT ID: ID merchant yang terdaftar di okeconnect
+3. API KEY: Api key yang terdaftar di okeconnect
 
 ## Struktur Proyek
 
