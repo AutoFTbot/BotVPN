@@ -79,4 +79,15 @@ Jika Anda memiliki pertanyaan atau masalah, silakan hubungi kami di:
 - [YHA](https://t.me/yha_bot)
 - [AutoFTbot69](https://t.me/Autoftbot69)
 
+## Thanks To
+```
+    __  ___           _       __          
+   /  |/  /___ ______| |     / /___ ___  __
+  / /|_/ / __ `/ ___/ | /| / / __ `/ / / /
+ / /  / / /_/ (__  )| |/ |/ / /_/ / /_/ / 
+/_/  /_/\__,_/____/ |__/|__/\__,_/\__, /  
+                                  /____/   
+```
+Terima kasih kepada MasWay sebagai penyedia API QRIS yang memungkinkan sistem pembayaran berjalan dengan lancar.
+
 ✨ Selamat menggunakan layanan kami! ✨
