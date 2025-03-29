@@ -1,7 +1,6 @@
 const os = require('os');
 const sqlite3 = require('sqlite3').verbose();
 const express = require('express');
-const crypto = require('crypto');
 const { Telegraf, Scenes, session } = require('telegraf');
 
 const app = express();
