@@ -53,6 +53,13 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
    ```bash
    node app.js
    ```
+6. Service BOT:
+   ```bash
+   npm i -g pm2
+   pm2 start app.js --name bot
+   pm2 startup
+   pm2 save
+   ```
 
 ## Konfigurasi QRIS
 
