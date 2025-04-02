@@ -56,7 +56,7 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
 6. Service BOT:
    ```bash
    npm i -g pm2
-   pm2 start app.js --name bot
+   pm2 start app.js --name sellvpn
    pm2 startup
    pm2 save
    ```
