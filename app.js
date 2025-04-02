@@ -1,10 +1,11 @@
 const os = require('os');
 const sqlite3 = require('sqlite3').verbose();
 const express = require('express');
-const { Telegraf } = require('telegraf');
-
+const crypto = require('crypto');
+const { Telegraf, Scenes, session } = require('telegraf');
 const app = express();
 const axios = require('axios');
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -14,19 +15,15 @@ const { renewssh, renewvmess, renewvless, renewtrojan, renewshadowsocks } = requ
 const fs = require('fs');
 const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
 
-const DATA_QRIS = vars.DATA_QRIS;
 const BOT_TOKEN = vars.BOT_TOKEN;
-const port = vars.PORT || 6969;
+const port = vars.PORT || 50123;
 const ADMIN = vars.USER_ID; 
 const NAMA_STORE = vars.NAMA_STORE || '@FTVPNSTORES';
-const bot = new Telegraf(BOT_TOKEN, {
-  telegram: {
-    apiRoot: 'https://api.telegram.org',
-    webhookReply: false,
-    agent: null,
-    timeout: 60000 // Tingkatkan timeout menjadi 60 detik
-  }
-});
+const DATA_QRIS = vars.DATA_QRIS;
+const MERCHANT_ID = vars.MERCHANT_ID;
+const API_KEY = vars.API_KEY;
+
+const bot = new Telegraf(BOT_TOKEN);
 const adminIds = ADMIN;
 console.log('Bot initialized');
 
@@ -985,12 +982,14 @@ bot.on('text', async (ctx) => {
               msg = await renewssh(username, exp, iplimit, serverId);
             }
           }
+          // Kurangi saldo pengguna
           db.run('UPDATE users SET saldo = saldo - ? WHERE user_id = ?', [totalHarga, ctx.from.id], (err) => {
             if (err) {
               console.error('⚠️ Kesalahan saat mengurangi saldo pengguna:', err.message);
               return ctx.reply('❌ *Terjadi kesalahan saat mengurangi saldo pengguna.*', { parse_mode: 'Markdown' });
             }
           });
+          // Tambahkan total_create_akun
           db.run('UPDATE Server SET total_create_akun = total_create_akun + 1 WHERE id = ?', [serverId], (err) => {
             if (err) {
               console.error('⚠️ Kesalahan saat menambahkan total_create_akun:', err.message);
@@ -1336,7 +1335,7 @@ bot.action('addsaldo_user', async (ctx) => {
       buttons.push(row);
     }
 
-    const currentPage = 0;
+    const currentPage = 0; // Halaman saat ini
     const replyMarkup = {
       inline_keyboard: [...buttons]
     };
@@ -1359,7 +1358,7 @@ bot.action('addsaldo_user', async (ctx) => {
 });
 bot.action(/next_users_(\d+)/, async (ctx) => {
   const currentPage = parseInt(ctx.match[1]);
-  const offset = currentPage * 20;
+  const offset = currentPage * 20; // Menghitung offset berdasarkan halaman saat ini
 
   try {
     console.log(`Next users process started for page ${currentPage + 1}`);
@@ -1407,6 +1406,7 @@ bot.action(/next_users_(\d+)/, async (ctx) => {
       inline_keyboard: [...buttons]
     };
 
+    // Menambahkan tombol navigasi
     const navigationButtons = [];
     if (currentPage > 0) {
       navigationButtons.push([{
@@ -2231,15 +2231,15 @@ async function updateServerField(serverId, value, query) {
   });
 }
 
-global.depositState = {};
-let lastRequestTime = 0;
-const requestInterval = 1000; 
-
 function generateRandomAmount(baseAmount) {
-  const random = Math.floor(Math.random() * 99) + 1; 
+  const random = Math.floor(Math.random() * 99) + 1;
   return baseAmount + random;
 }
 
+global.depositState = {};
+global.pendingDeposits = {};
+let lastRequestTime = 0;
+const requestInterval = 1000; 
 async function processDeposit(ctx, amount) {
   const currentTime = Date.now();
   
@@ -2284,7 +2284,6 @@ async function processDeposit(ctx, amount) {
       });
 
       if (response.data) {
-        // Kirim QR Code ke user
         await ctx.reply('💰 *Silakan scan QR Code berikut untuk melakukan pembayaran:*', {
           parse_mode: 'Markdown'
         });
@@ -2372,93 +2371,146 @@ function keyboard_full() {
   return buttons;
 }
 
-if (!global.pendingDeposits) {
-  global.pendingDeposits = {};
+global.processedTransactions = new Set();
+async function updateUserBalance(userId, amount) {
+  return new Promise((resolve, reject) => {
+    db.run("UPDATE users SET saldo = saldo + ? WHERE user_id = ?", 
+      [amount, userId],
+      function(err) {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(this.changes);
+      }
+    );
+  });
+}
+
+async function getUserBalance(userId) {
+  return new Promise((resolve, reject) => {
+    db.get("SELECT saldo FROM users WHERE user_id = ?", [userId],
+      (err, row) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve(row);
+      }
+    );
+  });
+}
+
+async function sendPaymentSuccessNotification(userId, deposit, matchingTransaction, currentBalance) {
+  try {
+    await bot.telegram.sendMessage(userId,
+      `✅ *Pembayaran Berhasil!*\n\n` +
+      `💰 Nominal: Rp ${deposit.amount}\n` +
+      `💳 Saldo ditambahkan: Rp ${deposit.originalAmount}\n` +
+      `🏦 Saldo sekarang: Rp ${currentBalance}\n\n` +
+      `📝 Detail Pembayaran:\n` +
+      `🏦 Bank: ${matchingTransaction.brand_name || 'QRIS'}\n` +
+      `🔖 Ref: ${matchingTransaction.issuer_reff || 'N/A'}\n` +
+      `👤 Pembayar: ${matchingTransaction.buyer_reff.split('/')[1].trim() || 'QRIS Payment'}`,
+      { parse_mode: 'Markdown' }
+    );
+    return true;
+  } catch (error) {
+    console.error('Error sending payment notification:', error);
+    return false;
+  }
+}
+
+async function processMatchingPayment(deposit, matchingTransaction, uniqueCode) {
+  const transactionKey = `${matchingTransaction.reference_id}_${matchingTransaction.amount}`;
+  if (global.processedTransactions.has(transactionKey)) {
+    console.log(`Transaction ${transactionKey} already processed, skipping...`);
+    return false;
+  }
+
+  try {
+    await updateUserBalance(deposit.userId, deposit.originalAmount);
+    const userBalance = await getUserBalance(deposit.userId);
+    
+    if (!userBalance) {
+      throw new Error('User balance not found after update');
+    }
+    const notificationSent = await sendPaymentSuccessNotification(
+      deposit.userId,
+      deposit,
+      matchingTransaction,
+      userBalance.saldo
+    );
+
+    if (notificationSent) {
+      global.processedTransactions.add(transactionKey);
+      delete global.pendingDeposits[uniqueCode];
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    return false;
+  }
 }
 
 async function checkQRISStatus() {
   try {
-    const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
+    const pendingDeposits = Object.entries(global.pendingDeposits);
     
-    if (!global.pendingDeposits || Object.keys(global.pendingDeposits).length === 0) {
-      return;
-    }
-    
-    for (const [uniqueCode, deposit] of Object.entries(global.pendingDeposits)) {
-      if (!global.pendingDeposits[uniqueCode]) {
-        continue;
-      }
+    for (const [uniqueCode, deposit] of pendingDeposits) {
+      if (deposit.status !== 'pending') continue;
+      
+      const maxRetries = 3;
+      let retryCount = 0;
+      
+      while (retryCount < maxRetries) {
+        try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
 
-      if (deposit && deposit.status === 'pending') {
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        while (retryCount < maxRetries) {
-          try {
-            const response = await axios.get(`http://orkut.cekid.games/qris/cekstatus`, {
-              params: {
-                merchant: vars.MERCHANT_ID,
-                keyorkut: vars.API_KEY
-              },
-              timeout: 10000,
-              headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0'
-              }
+          const config = {
+            method: 'get',
+            maxBodyLength: Infinity,
+            url: `https://gateway.okeconnect.com/api/mutasi/qris/${MERCHANT_ID}/${API_KEY}`,
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Mozilla/5.0'
+            },
+            timeout: 10000
+          };
+
+          const response = await axios(config);
+
+          if (response.data?.status === 'success' && Array.isArray(response.data.data)) {
+            const matchingTransaction = response.data.data.find(trans => {
+              const transactionKey = `${trans.reference_id}_${trans.amount}`;
+              return !global.processedTransactions.has(transactionKey) && 
+                     parseInt(trans.amount) === deposit.amount;
             });
 
-            if (response.data && parseInt(response.data.amount) === deposit.amount && response.data.type === 'CR') {
-              await new Promise((resolve, reject) => {
-                db.run("UPDATE users SET saldo = saldo + ? WHERE user_id = ?", 
-                  [deposit.originalAmount, deposit.userId], 
-                  async function(err) {
-                    if (err) {
-                      reject(err);
-                      return;
-                    }
-                    db.get("SELECT saldo FROM users WHERE user_id = ?", [deposit.userId], 
-                      async (err, row) => {
-                        if (err) {
-                          reject(err);
-                          return;
-                        }
-
-                        try {
-                          await bot.telegram.sendMessage(deposit.userId, 
-                            `✅ *Pembayaran Berhasil!*\n\n` +
-                            `💰 Nominal: Rp ${deposit.amount}\n` +
-                            `💳 Saldo ditambahkan: Rp ${deposit.originalAmount}\n` +
-                            `🏦 Saldo sekarang: Rp ${row.saldo}\n\n` +
-                            `📝 Detail Pembayaran:\n` +
-                            `🏦 Bank: ${response.data.brand_name}\n` +
-                            `🔖 Ref: ${response.data.issuer_reff}\n` +
-                            `👤 Pembayar: ${response.data.buyer_reff.split('/')[1].trim()}`,
-                            { parse_mode: 'Markdown' }
-                          );
-                          delete global.pendingDeposits[uniqueCode];
-                          resolve();
-                        } catch (error) {
-                          reject(error);
-                        }
-                    });
-                });
-              });
-              break;
+            if (matchingTransaction) {
+              const success = await processMatchingPayment(deposit, matchingTransaction, uniqueCode);
+              if (success) break;
             }
-          } catch (error) {
-            retryCount++;
-            
-            if (retryCount === maxRetries) {
-              break;
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          retryCount++;
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+        } catch (error) {
+          console.error(`Error checking payment status (attempt ${retryCount + 1}):`, error.message);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            const delay = error.response?.status === 429 ? 30000 : 10000;
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
     }
   } catch (error) {
-    // Error handling tetap ada tapi tanpa logging
+    console.error('Error in checkQRISStatus:', error);
   }
 }
 setInterval(checkQRISStatus, 30000);
