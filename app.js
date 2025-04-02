@@ -1,8 +1,7 @@
 const os = require('os');
 const sqlite3 = require('sqlite3').verbose();
 const express = require('express');
-const crypto = require('crypto');
-const { Telegraf, Scenes, session } = require('telegraf');
+const { Telegraf } = require('telegraf');
 
 const app = express();
 const axios = require('axios');
@@ -17,10 +16,17 @@ const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
 
 const DATA_QRIS = vars.DATA_QRIS;
 const BOT_TOKEN = vars.BOT_TOKEN;
-const port = vars.PORT || 50123;
+const port = vars.PORT || 6969;
 const ADMIN = vars.USER_ID; 
 const NAMA_STORE = vars.NAMA_STORE || '@FTVPNSTORES';
-const bot = new Telegraf(BOT_TOKEN);
+const bot = new Telegraf(BOT_TOKEN, {
+  telegram: {
+    apiRoot: 'https://api.telegram.org',
+    webhookReply: false,
+    agent: null,
+    timeout: 60000 // Tingkatkan timeout menjadi 60 detik
+  }
+});
 const adminIds = ADMIN;
 console.log('Bot initialized');
 
@@ -2373,6 +2379,7 @@ if (!global.pendingDeposits) {
 async function checkQRISStatus() {
   try {
     const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
+    
     if (!global.pendingDeposits || Object.keys(global.pendingDeposits).length === 0) {
       return;
     }
