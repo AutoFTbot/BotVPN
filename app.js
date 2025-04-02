@@ -2373,15 +2373,12 @@ if (!global.pendingDeposits) {
 async function checkQRISStatus() {
   try {
     const vars = JSON.parse(fs.readFileSync('./.vars.json', 'utf8'));
-    const GROUP_ID = vars.GROUP_ID;
-    
     if (!global.pendingDeposits || Object.keys(global.pendingDeposits).length === 0) {
       return;
     }
     
     for (const [uniqueCode, deposit] of Object.entries(global.pendingDeposits)) {
       if (!global.pendingDeposits[uniqueCode]) {
-        console.log(`Entri untuk uniqueCode: ${uniqueCode} sudah diproses sebelumnya.`);
         continue;
       }
 
@@ -2409,14 +2406,12 @@ async function checkQRISStatus() {
                   [deposit.originalAmount, deposit.userId], 
                   async function(err) {
                     if (err) {
-                      console.error('Error updating balance:', err);
                       reject(err);
                       return;
                     }
                     db.get("SELECT saldo FROM users WHERE user_id = ?", [deposit.userId], 
                       async (err, row) => {
                         if (err) {
-                          console.error('Error getting updated balance:', err);
                           reject(err);
                           return;
                         }
@@ -2433,26 +2428,9 @@ async function checkQRISStatus() {
                             `👤 Pembayar: ${response.data.buyer_reff.split('/')[1].trim()}`,
                             { parse_mode: 'Markdown' }
                           );
-
-                          const userInfo = await bot.telegram.getChat(deposit.userId);
-                          const username = userInfo.username ? `@${userInfo.username}` : `${userInfo.first_name}`;
-                          
-                          await bot.telegram.sendMessage(GROUP_ID,
-                            `💰 *DEPOSIT BERHASIL!*\n\n` +
-                            `👤 User: ${username}\n` +
-                            `💳 Nominal Deposit: Rp ${deposit.originalAmount}\n` +
-                            `🏦 Bank: ${response.data.brand_name}\n` +
-                            `🤖 ${NAMA_STORE}`,
-                            { parse_mode: 'Markdown' }
-                          );
-                          
-                          console.log(`✅ Payment processed successfully for user ${deposit.userId}`);
-                          console.log(`Deleting entry for uniqueCode: ${uniqueCode}`);
                           delete global.pendingDeposits[uniqueCode];
-                          console.log(`Current pending deposits:`, global.pendingDeposits);
                           resolve();
                         } catch (error) {
-                          console.error('Error sending notification:', error);
                           reject(error);
                         }
                     });
@@ -2461,11 +2439,9 @@ async function checkQRISStatus() {
               break;
             }
           } catch (error) {
-            console.error(`Attempt ${retryCount + 1} failed:`, error.message);
             retryCount++;
             
             if (retryCount === maxRetries) {
-              console.error(`Max retries reached for deposit ${uniqueCode}`);
               break;
             }
             
@@ -2475,7 +2451,7 @@ async function checkQRISStatus() {
       }
     }
   } catch (error) {
-    console.error('Error in checkQRISStatus:', error);
+    // Error handling tetap ada tapi tanpa logging
   }
 }
 setInterval(checkQRISStatus, 30000);
