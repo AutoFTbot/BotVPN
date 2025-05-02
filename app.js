@@ -112,6 +112,19 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
   }
 });
 
+db.run(`CREATE TABLE IF NOT EXISTS transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  amount INTEGER,
+  type TEXT,
+  timestamp INTEGER,
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+)`, (err) => {
+  if (err) {
+    logger.error('Kesalahan membuat tabel transactions:', err.message);
+  }
+});
+
 const userState = {};
 logger.info('User state initialized');
 
@@ -181,6 +194,7 @@ async function sendMainMenu(ctx) {
   } catch (err) {
     logger.error('Kesalahan saat mengambil jumlah server:', err.message);
   }
+
   let jumlahPengguna = 0;
   try {
     const row = await new Promise((resolve, reject) => {
@@ -197,6 +211,49 @@ async function sendMainMenu(ctx) {
     logger.error('Kesalahan saat mengambil jumlah pengguna:', err.message);
   }
 
+  let topUsers = [];
+  try {
+    topUsers = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT u.user_id, COUNT(t.id) as transaction_count 
+        FROM users u 
+        LEFT JOIN transactions t ON u.user_id = t.user_id 
+        GROUP BY u.user_id 
+        ORDER BY transaction_count DESC 
+        LIMIT 3
+      `, [], async (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const usersWithNames = await Promise.all(rows.map(async (row) => {
+            try {
+              const user = await bot.telegram.getChat(row.user_id);
+              return {
+                ...row,
+                username: user.username || user.first_name
+              };
+            } catch (error) {
+              return {
+                ...row,
+                username: 'Unknown User'
+              };
+            }
+          }));
+          resolve(usersWithNames);
+        }
+      });
+    });
+  } catch (err) {
+    logger.error('Kesalahan saat mengambil top users:', err.message);
+  }
+
+  const topUsersText = topUsers.length > 0 
+    ? '\n\n🏆 *Top 3 Pengguna Aktif:*\n' + 
+      topUsers.map((user, index) => 
+        `${index + 1}. @${user.username} (${user.transaction_count} transaksi)`
+      ).join('\n')
+    : '';
+
   const messageText = `*Selamat datang di ${NAMA_STORE},
 Powered by FTVPN* 🚀
 Bot VPN serba otomatis untuk membeli
@@ -206,7 +263,7 @@ dalam layanan VPN dengan bot kami!
 
 ⏳ *Uptime bot:* ${days} Hari
 🌐 *Server tersedia:* ${jumlahServer}
-👥 *Jumlah pengguna:* ${jumlahPengguna}
+👥 *Jumlah pengguna:* ${jumlahPengguna}${topUsersText}
 
 *Silakan pilih opsi layanan:*`;
 
@@ -2545,6 +2602,19 @@ async function processMatchingPayment(deposit, matchingTransaction, uniqueCode) 
     if (!userBalance) {
       throw new Error('User balance not found after update');
     }
+
+    // Record the transaction
+    await new Promise((resolve, reject) => {
+      db.run(
+        'INSERT INTO transactions (user_id, amount, type, timestamp) VALUES (?, ?, ?, ?)',
+        [deposit.userId, deposit.originalAmount, 'deposit', Date.now()],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+
     const notificationSent = await sendPaymentSuccessNotification(
       deposit.userId,
       deposit,
