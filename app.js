@@ -115,13 +115,14 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 db.run(`CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
-  amount INTEGER,
   type TEXT,
   timestamp INTEGER,
   FOREIGN KEY (user_id) REFERENCES users(user_id)
 )`, (err) => {
   if (err) {
-    logger.error('Kesalahan membuat tabel transactions:', err.message);
+    logger.error('Error creating transactions table:', err);
+  } else {
+    logger.info('Transactions table created or already exists');
   }
 });
 
@@ -211,41 +212,64 @@ async function sendMainMenu(ctx) {
     logger.error('Kesalahan saat mengambil jumlah pengguna:', err.message);
   }
 
-  // Get top 3 users by transaction count
+  // Get top 3 users by account purchase count
   let topUsers = [];
   try {
-    topUsers = await new Promise((resolve, reject) => {
-      db.all(`
-        SELECT u.user_id, COUNT(t.id) as transaction_count 
-        FROM users u 
-        LEFT JOIN transactions t ON u.user_id = t.user_id 
-        GROUP BY u.user_id 
-        ORDER BY transaction_count DESC 
-        LIMIT 3
-      `, [], async (err, rows) => {
+    // First, let's check if we have any transactions at all
+    const totalTransactions = await new Promise((resolve, reject) => {
+      db.get('SELECT COUNT(*) as count FROM transactions', [], (err, row) => {
         if (err) {
+          logger.error('Error counting total transactions:', err);
           reject(err);
         } else {
-          const usersWithNames = await Promise.all(rows.map(async (row) => {
-            try {
-              const user = await bot.telegram.getChat(row.user_id);
-              return {
-                ...row,
-                username: user.username || user.first_name
-              };
-            } catch (error) {
-              return {
-                ...row,
-                username: 'Unknown User'
-              };
-            }
-          }));
-          resolve(usersWithNames);
+          logger.info(`Total transactions in database: ${row.count}`);
+          resolve(row.count);
         }
       });
     });
+
+    if (totalTransactions === 0) {
+      logger.info('No transactions found in database');
+      topUsers = [];
+    } else {
+      topUsers = await new Promise((resolve, reject) => {
+        db.all(`
+          SELECT u.user_id, COUNT(t.id) as transaction_count 
+          FROM users u 
+          LEFT JOIN transactions t ON u.user_id = t.user_id 
+          WHERE t.type IN ('ssh', 'vmess', 'vless', 'trojan', 'shadowsocks')
+          GROUP BY u.user_id 
+          ORDER BY transaction_count DESC 
+          LIMIT 3
+        `, [], async (err, rows) => {
+          if (err) {
+            logger.error('Error fetching top users:', err);
+            reject(err);
+          } else {
+            logger.info(`Found ${rows.length} top users`);
+            const usersWithNames = await Promise.all(rows.map(async (row) => {
+              try {
+                const user = await bot.telegram.getChat(row.user_id);
+                logger.info(`User ${row.user_id} has ${row.transaction_count} transactions`);
+                return {
+                  ...row,
+                  username: user.username || user.first_name
+                };
+              } catch (error) {
+                logger.error('Error getting user info:', error);
+                return {
+                  ...row,
+                  username: 'Unknown User'
+                };
+              }
+            }));
+            resolve(usersWithNames);
+          }
+        });
+      });
+    }
   } catch (err) {
-    logger.error('Kesalahan saat mengambil top users:', err.message);
+    logger.error('Error in top users query:', err);
   }
 
   const topUsersText = topUsers.length > 0 
@@ -270,12 +294,12 @@ dalam layanan VPN dengan bot kami!
 
   try {
     if (ctx.updateType === 'callback_query') {
-      await ctx.editMessageText(messageText, {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: keyboard
-        }
-      });
+    await ctx.editMessageText(messageText, {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
     } else {
       await ctx.reply(messageText, {
         parse_mode: 'Markdown',
@@ -676,19 +700,19 @@ async function handleServiceAction(ctx, action) {
   let keyboard;
   if (action === 'create') {
     keyboard = [
-      [{ text: 'Buat Ssh/Ovpn', callback_data: 'create_ssh' }],
+      [{ text: 'Buat Ssh/Ovpn', callback_data: 'create_ssh' }],      
       [{ text: 'Buat Vmess', callback_data: 'create_vmess' }, { text: 'Buat Vless', callback_data: 'create_vless' }],
       [{ text: 'Buat Trojan', callback_data: 'create_trojan' }, { text: 'Buat Shadowsocks', callback_data: 'create_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]
     ];
   } else if (action === 'renew') {
     keyboard = [
-      [{ text: 'Perpanjang Ssh/Ovpn', callback_data: 'renew_ssh' }],
+      [{ text: 'Perpanjang Ssh/Ovpn', callback_data: 'renew_ssh' }],      
       [{ text: 'Perpanjang Vmess', callback_data: 'renew_vmess' }, { text: 'Perpanjang Vless', callback_data: 'renew_vless' }],
       [{ text: 'Perpanjang Trojan', callback_data: 'renew_trojan' }, { text: 'Perpanjang Shadowsocks', callback_data: 'renew_shadowsocks' }],
       [{ text: '🔙 Kembali', callback_data: 'send_main_menu' }]
     ];
-  }
+  } 
   try {
     await ctx.editMessageReplyMarkup({
       inline_keyboard: keyboard
@@ -1069,15 +1093,21 @@ bot.on('text', async (ctx) => {
           if (action === 'create') {
             if (type === 'vmess') {
               msg = await createvmess(username, exp, quota, iplimit, serverId);
+              await recordAccountTransaction(ctx.from.id, 'vmess');
             } else if (type === 'vless') {
               msg = await createvless(username, exp, quota, iplimit, serverId);
+              await recordAccountTransaction(ctx.from.id, 'vless');
             } else if (type === 'trojan') {
               msg = await createtrojan(username, exp, quota, iplimit, serverId);
+              await recordAccountTransaction(ctx.from.id, 'trojan');
             } else if (type === 'shadowsocks') {
               msg = await createshadowsocks(username, exp, quota, iplimit, serverId);
+              await recordAccountTransaction(ctx.from.id, 'shadowsocks');
             } else if (type === 'ssh') {
               msg = await createssh(username, password, exp, iplimit, serverId);
+              await recordAccountTransaction(ctx.from.id, 'ssh');
             }
+            logger.info(`Account created and transaction recorded for user ${ctx.from.id}, type: ${type}`);
           } else if (action === 'renew') {
             if (type === 'vmess') {
               msg = await renewvmess(username, exp, quota, iplimit, serverId);
@@ -2159,11 +2189,11 @@ async function handleDepositState(ctx, userId, data) {
   const newMessage = `💰 *Silakan masukkan jumlah nominal saldo yang Anda ingin tambahkan ke akun Anda:*\n\nJumlah saat ini: *Rp ${currentAmount || '0'}*`;
   
   try {
-    if (newMessage !== ctx.callbackQuery.message.text) {
-      await ctx.editMessageText(newMessage, {
-        reply_markup: { inline_keyboard: keyboard_nomor() },
-        parse_mode: 'Markdown'
-      });
+  if (newMessage !== ctx.callbackQuery.message.text) {
+    await ctx.editMessageText(newMessage, {
+      reply_markup: { inline_keyboard: keyboard_nomor() },
+      parse_mode: 'Markdown'
+    });
     } else {
       await ctx.answerCbQuery();
     }
@@ -2403,24 +2433,24 @@ async function processDeposit(ctx, amount) {
 
     const caption =
       `📝 *Detail Pembayaran:*\n\n` +
-      `💰 Jumlah: Rp ${finalAmount}\n` +
-      `⚠️ *Penting:* Mohon transfer sesuai nominal\n` +
+                  `💰 Jumlah: Rp ${finalAmount}\n` +
+                  `⚠️ *Penting:* Mohon transfer sesuai nominal\n` +
       `⏱️ Waktu: 5 menit\n\n` +
-      `⚠️ *Catatan:*\n` +
-      `- Pembayaran akan otomatis terverifikasi\n` +
-      `- Jangan tutup halaman ini\n` +
+                  `⚠️ *Catatan:*\n` +
+                  `- Pembayaran akan otomatis terverifikasi\n` +
+                  `- Jangan tutup halaman ini\n` +
       `- Jika pembayaran berhasil, saldo akan otomatis ditambahkan`;
 
     const qrMessage = await ctx.replyWithPhoto({ source: qrBuffer }, {
       caption: caption,
-      parse_mode: 'Markdown'
-    });
+          parse_mode: 'Markdown'
+        });
 
-    global.pendingDeposits[uniqueCode] = {
-      amount: finalAmount,
-      originalAmount: amount,
-      userId,
-      timestamp: Date.now(),
+        global.pendingDeposits[uniqueCode] = {
+          amount: finalAmount,
+          originalAmount: amount,
+          userId,
+          timestamp: Date.now(),
       status: 'pending',
       qrMessageId: qrMessage.message_id
     };
@@ -2432,7 +2462,7 @@ async function processDeposit(ctx, amount) {
         if (err) logger.error('Gagal insert pending_deposits:', err.message);
       }
     );
-    delete global.depositState[userId];
+        delete global.depositState[userId];
 
   } catch (error) {
     logger.error('❌ Kesalahan saat memproses deposit:', error);
@@ -2463,7 +2493,7 @@ async function checkQRISStatus() {
             'Waktu pembayaran telah habis. Silakan klik Top Up lagi untuk mendapatkan QR baru.',
             { parse_mode: 'Markdown' }
           );
-        } catch (error) {
+    } catch (error) {
           logger.error('Error deleting expired payment messages:', error);
         }
         delete global.pendingDeposits[uniqueCode];
@@ -2480,8 +2510,8 @@ async function checkQRISStatus() {
           const transactionKey = `${result.data.reference}_${result.data.amount}`;
           if (global.processedTransactions.has(transactionKey)) {
             logger.info(`Transaction ${transactionKey} already processed, skipping...`);
-            continue;
-          }
+        continue;
+      }
 
           if (parseInt(result.data.amount) !== deposit.amount) {
             logger.info(`Amount mismatch for ${uniqueCode}: expected ${deposit.amount}, got ${result.data.amount}`);
@@ -2491,7 +2521,7 @@ async function checkQRISStatus() {
           const success = await processMatchingPayment(deposit, result.data, uniqueCode);
           if (success) {
             logger.info(`Payment processed successfully for ${uniqueCode}`);
-            delete global.pendingDeposits[uniqueCode];
+  delete global.pendingDeposits[uniqueCode];
             db.run('DELETE FROM pending_deposits WHERE unique_code = ?', [uniqueCode], (err) => {
               if (err) logger.error('Gagal hapus pending_deposits (success):', err.message);
             });
