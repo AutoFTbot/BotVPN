@@ -250,7 +250,7 @@ async function sendMainMenu(ctx) {
   const topUsersText = topUsers.length > 0 
     ? '\n\n🏆 *Top 3 Pengguna Aktif:*\n' + 
       topUsers.map((user, index) => 
-        `${index + 1}. @${user.username} (${user.transaction_count} transaksi)`
+        `${index + 1}. ${user.username} (${user.transaction_count} transaksi)`
       ).join('\n')
     : '';
 
