@@ -211,6 +211,7 @@ async function sendMainMenu(ctx) {
     logger.error('Kesalahan saat mengambil jumlah pengguna:', err.message);
   }
 
+  // Get top 3 users by transaction count
   let topUsers = [];
   try {
     topUsers = await new Promise((resolve, reject) => {
@@ -2155,12 +2156,20 @@ async function handleDepositState(ctx, userId, data) {
   }
 
   global.depositState[userId].amount = currentAmount;
-  const newMessage = `💰 *Silakan masukkan jumlah nominal saldo yang Anda ingin tambahkan ke akun Anda:*\n\nJumlah saat ini: *Rp ${currentAmount}*`;
-  if (newMessage !== ctx.callbackQuery.message.text) {
-    await ctx.editMessageText(newMessage, {
-      reply_markup: { inline_keyboard: keyboard_nomor() },
-      parse_mode: 'Markdown'
-    });
+  const newMessage = `💰 *Silakan masukkan jumlah nominal saldo yang Anda ingin tambahkan ke akun Anda:*\n\nJumlah saat ini: *Rp ${currentAmount || '0'}*`;
+  
+  try {
+    if (newMessage !== ctx.callbackQuery.message.text) {
+      await ctx.editMessageText(newMessage, {
+        reply_markup: { inline_keyboard: keyboard_nomor() },
+        parse_mode: 'Markdown'
+      });
+    } else {
+      await ctx.answerCbQuery();
+    }
+  } catch (error) {
+    await ctx.answerCbQuery();
+    logger.error('Error editing message:', error.message);
   }
 }
 
