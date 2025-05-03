@@ -43,7 +43,7 @@ cek_status() {
 
 setup_bot() {
     if ! dpkg -s nodejs >/dev/null 2>&1; then
-        curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - || echo -e "${red}Failed to download Node.js setup${neutral}"
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - || echo -e "${red}Failed to download Node.js setup${neutral}"
         apt-get install -y nodejs || echo -e "${red}Failed to install Node.js${neutral}"
         npm install -g npm@latest
     else
