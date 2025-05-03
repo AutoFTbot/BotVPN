@@ -274,35 +274,39 @@ async function sendMainMenu(ctx) {
 
   const topUsersText = topUsers.length > 0 
     ? '\n\n🏆 *Top 3 Pengguna Aktif:*\n' + 
-      topUsers.map((user, index) => 
-        `${index + 1}. ${user.username} (${user.transaction_count} transaksi)`
-      ).join('\n')
+      topUsers.map((user, index) => {
+        const username = user.username || 'Unknown User';
+        const escapedUsername = username.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+        return `${index + 1}\\. ${escapedUsername} \\(${user.transaction_count} transaksi\\)`;
+      }).join('\n')
     : '';
 
-  const messageText = `*Selamat datang di ${NAMA_STORE},
-Powered by FTVPN* 🚀
-Bot VPN serba otomatis untuk membeli
-layanan VPN dengan mudah dan cepat
-Nikmati kemudahan dan kecepatan
-dalam layanan VPN dengan bot kami!
+  const messageText = `*${NAMA_STORE.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&')}* 🚀
+_Powered by FTVPN_
 
-⏳ *Uptime bot:* ${days} Hari
-🌐 *Server tersedia:* ${jumlahServer}
-👥 *Jumlah pengguna:* ${jumlahPengguna}${topUsersText}
+╭─ *Bot VPN Otomatis*
+├ Bot VPN serba otomatis untuk membeli
+├ layanan VPN dengan mudah dan cepat
+└ Nikmati kemudahan dan kecepatan dalam layanan VPN dengan bot kami\\!
+
+╭─ *Informasi Bot*
+├ ⏳ Uptime: ${days} Hari
+├ 🌐 Server: ${jumlahServer}
+└ 👥 Pengguna: ${jumlahPengguna}${topUsersText}
 
 *Silakan pilih opsi layanan:*`;
 
   try {
     if (ctx.updateType === 'callback_query') {
-    await ctx.editMessageText(messageText, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: keyboard
-      }
-    });
+      await ctx.editMessageText(messageText, {
+        parse_mode: 'MarkdownV2',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
     } else {
       await ctx.reply(messageText, {
-        parse_mode: 'Markdown',
+        parse_mode: 'MarkdownV2',
         reply_markup: {
           inline_keyboard: keyboard
         }
@@ -2171,8 +2175,8 @@ async function handleDepositState(ctx, userId, data) {
     if (currentAmount.length === 0) {
       return await ctx.answerCbQuery('⚠️ Jumlah tidak boleh kosong!', { show_alert: true });
     }
-    if (parseInt(currentAmount) < 100) {
-      return await ctx.answerCbQuery('⚠️ Jumlah minimal adalah 100 perak!', { show_alert: true });
+    if (parseInt(currentAmount) < 10000) {
+      return await ctx.answerCbQuery('⚠️ Jumlah minimal adalah 10.000 !', { show_alert: true });
     }
     global.depositState[userId].action = 'confirm_amount';
     await processDeposit(ctx, currentAmount);
