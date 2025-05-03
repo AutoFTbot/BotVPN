@@ -88,13 +88,11 @@ Jika Anda memiliki pertanyaan atau masalah, silakan hubungi kami di:
 
 ## Thanks To
 ```
-    __  ___           _       __          
-   /  |/  /___ ______| |     / /___ ___  __
-  / /|_/ / __ `/ ___/ | /| / / __ `/ / / /
- / /  / / /_/ (__  )| |/ |/ / /_/ / /_/ / 
-/_/  /_/\__,_/____/ |__/|__/\__,_/\__, /  
-                                  /____/   
+  ____                         ____                       ___       _ __  
+ / __ \_______ ____  ___ _____/ __ \_______ ____  ___ _  / _ )___ _(_) /__
+/ /_/ / __/ _ `/ _ \/ _ `/___/ /_/ / __/ _ `/ _ \/ _ `/ / _  / _ `/ /  '_/
+\____/_/  \_,_/_//_/\_, /    \____/_/  \_,_/_//_/\_, / /____/\_,_/_/_/\_\ 
+                   /___/                        /___/                       
 ```
-Terima kasih kepada MasWay sebagai penyedia API QRIS yang memungkinkan sistem pembayaran berjalan dengan lancar.
 
 ✨ Selamat menggunakan layanan kami! ✨
