@@ -2678,6 +2678,23 @@ async function processMatchingPayment(deposit, matchingTransaction, uniqueCode) 
 
 setInterval(checkQRISStatus, 10000);
 
+async function recordAccountTransaction(userId, type) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO transactions (user_id, type, timestamp) VALUES (?, ?, ?)',
+      [userId, type, Date.now()],
+      (err) => {
+        if (err) {
+          logger.error('Error recording account transaction:', err.message);
+          reject(err);
+        } else {
+          resolve();
+        }
+      }
+    );
+  });
+}
+
 app.listen(port, () => {
   bot.launch().then(() => {
       logger.info('Bot telah dimulai');
