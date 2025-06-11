@@ -7,7 +7,8 @@ FTVPN Bot adalah bot serba otomatis untuk membeli layanan VPN dengan mudah dan c
 - **Service Create**: Membuat akun VPN baru
 - **Service Renew**: Memperbarui akun VPN yang sudah ada
 - **Top Up Saldo**: Menambah saldo akun pengguna via QRIS
-- **Cek Saldo**: Memeriksa saldo akun pengguna
+- **Notifikasi Grup**: Setiap top up dan pembelian/renew akun akan otomatis mengirim notifikasi ke grup Telegram
+- **Auto Hapus Receipts**: File di folder receipts akan otomatis dihapus setelah pembayaran sukses
 - **QRIS Payment**: Sistem pembayaran menggunakan QRIS (Quick Response Code Indonesian Standard)
 
 ## Teknologi yang Digunakan
@@ -35,7 +36,7 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
    ```
 3. Install dependencies:
    ```bash
-   npm i sqlite3 express telegraf axios
+   npm install
    ```
 4. Siapkan konfigurasi di `.vars.json`:
    ```json
@@ -43,7 +44,8 @@ sysctl -w net.ipv6.conf.all.disable_ipv6=1 && sysctl -w net.ipv6.conf.default.di
      "BOT_TOKEN": "your_telegram_bot_token",
      "USER_ID": "your_admin_telegram_id",
      "NAMA_STORE": "your_store_name",
-     "PORT": "50123",
+     "GROUP_ID": "your_group_id",
+     "PORT": "6969",
      "DATA_QRIS": "your_qris_data",
      "MERCHANT_ID": "your_merchant_id",
      "API_KEY": "your_api_key"
@@ -67,6 +69,7 @@ Untuk menggunakan sistem pembayaran QRIS, Anda perlu menyiapkan:
 1. DATA QRIS: Data Qris bisa diambil dari web https://scanqr.org/, Dengan mengupload Qris anda dan menyalin hasil scan datanya
 2. MERCHANT ID: ID merchant yang terdaftar di okeconnect
 3. API KEY: Api key yang terdaftar di okeconnect
+4. GROUP ID: ID grup Telegram (misal: -1001234567890) untuk notifikasi
 
 ## Struktur Proyek
 
@@ -74,7 +77,7 @@ Untuk menggunakan sistem pembayaran QRIS, Anda perlu menyiapkan:
 - `modules/create.js`: Modul untuk membuat akun VPN baru
 - `modules/renew.js`: Modul untuk memperbarui akun VPN yang sudah ada
 - `sellvpn.db`: Database SQLite yang menyimpan data pengguna dan server
-- `.vars.json`: File konfigurasi untuk menyimpan pengaturan bot dan QRIS
+- `.vars.json`: File konfigurasi untuk menyimpan pengaturan bot, QRIS, dan grup
 
 ## Kontribusi
 

@@ -112,12 +112,19 @@ server_app() {
             echo -e "${red}API KEY tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
+    while [ -z "$groupid" ]; do
+        read -p "Masukkan GROUP ID (ID grup Telegram, contoh: -1001234567890): " groupid
+        if [ -z "$groupid" ]; then
+            echo -e "${red}GROUP ID tidak boleh kosong. Silakan coba lagi.${neutral}"
+        fi
+    done
     rm -f /root/BotVPN/.vars.json
     echo "{
   \"BOT_TOKEN\": \"$token\",
   \"USER_ID\": \"$adminid\",
   \"NAMA_STORE\": \"$namastore\",
-  \"PORT\": \"50123\",
+  \"GROUP_ID\": \"$groupid\",
+  \"PORT\": \"6969\",
   \"DATA_QRIS\": \"$dataqris\",
   \"MERCHANT_ID\": \"$merchantid\",
   \"API_KEY\": \"$apikey\"
