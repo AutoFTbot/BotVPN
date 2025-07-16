@@ -4,7 +4,7 @@ const express = require('express');
 const { Telegraf } = require('telegraf');
 const app = express();
 const axios = require('axios');
-const QRISPayment = require('qris-payment');
+const AutoftQRIS = require('autoft-qris');
 const winston = require('winston');
 const logger = winston.createLogger({
   level: 'info',
@@ -53,8 +53,8 @@ const port = vars.PORT || 6969;
 const ADMIN = vars.USER_ID; 
 const NAMA_STORE = vars.NAMA_STORE || '@FTVPNSTORES';
 const DATA_QRIS = vars.DATA_QRIS;
-const MERCHANT_ID = vars.MERCHANT_ID;
-const API_KEY = vars.API_KEY;
+const USERNAME_ORKUT = vars.USERNAME_ORKUT;
+const AUTH_TOKEN = vars.AUTH_TOKEN;
 const GROUP_ID = vars.GROUP_ID;
 
 const bot = new Telegraf(BOT_TOKEN);
@@ -2409,11 +2409,12 @@ db.all('SELECT * FROM pending_deposits WHERE status = "pending"', [], (err, rows
   logger.info('Pending deposit loaded:', Object.keys(global.pendingDeposits).length);
 });
 
-const qris = new QRISPayment({
-    merchantId: MERCHANT_ID,
-    apiKey: API_KEY,
+const qris = new AutoftQRIS({
+    storeName: NAMA_STORE,
+    auth_username: USERNAME_ORKUT,
+    auth_token: AUTH_TOKEN,
     baseQrString: DATA_QRIS,
-    logoPath: 'logo.png'
+    logoPath: 'logo.png' //OPSIONAL
 });
 
 async function processDeposit(ctx, amount) {
@@ -2561,6 +2562,11 @@ async function checkQRISStatus() {
           if (parseInt(result.data.amount) !== deposit.amount) {
             logger.info(`Amount mismatch for ${uniqueCode}: expected ${deposit.amount}, got ${result.data.amount}`);
             continue;
+          }
+
+          // Handle receipt if available
+          if (result.receipt && result.receipt.filePath) {
+            logger.info(`Receipt generated: ${result.receipt.filePath}`);
           }
 
           const success = await processMatchingPayment(deposit, result.data, uniqueCode);

@@ -100,16 +100,16 @@ server_app() {
             echo -e "${red}DATA QRIS tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
-    while [ -z "$merchantid" ]; do
-        read -p "Masukkan MERCHANT ID: " merchantid
-        if [ -z "$merchantid" ]; then
-            echo -e "${red}MERCHANT ID tidak boleh kosong. Silakan coba lagi.${neutral}"
+    while [ -z "$username_orkut" ]; do
+        read -p "Masukkan USERNAME ORDERKUOTA: " username_orkut
+        if [ -z "$username_orkut" ]; then
+            echo -e "${red}USERNAME ORDERKUOTA tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
-    while [ -z "$apikey" ]; do
-        read -p "Masukkan API KEY: " apikey
-        if [ -z "$apikey" ]; then
-            echo -e "${red}API KEY tidak boleh kosong. Silakan coba lagi.${neutral}"
+    while [ -z "$auth_token" ]; do
+        read -p "Masukkan AUTH TOKEN: " auth_token
+        if [ -z "$auth_token" ]; then
+            echo -e "${red}AUTH TOKEN tidak boleh kosong. Silakan coba lagi.${neutral}"
         fi
     done
     while [ -z "$groupid" ]; do
@@ -119,18 +119,9 @@ server_app() {
         fi
     done
     rm -f /root/BotVPN/.vars.json
-    echo "{
-  \"BOT_TOKEN\": \"$token\",
-  \"USER_ID\": \"$adminid\",
-  \"NAMA_STORE\": \"$namastore\",
-  \"GROUP_ID\": \"$groupid\",
-  \"PORT\": \"6969\",
-  \"DATA_QRIS\": \"$dataqris\",
-  \"MERCHANT_ID\": \"$merchantid\",
-  \"API_KEY\": \"$apikey\"
-}" >/root/BotVPN/.vars.json
+    echo "{\n  \"BOT_TOKEN\": \"$token\",\n  \"USER_ID\": \"$adminid\",\n  \"NAMA_STORE\": \"$namastore\",\n  \"GROUP_ID\": \"$groupid\",\n  \"PORT\": \"6969\",\n  \"DATA_QRIS\": \"$dataqris\",\n  \"USERNAME_ORKUT\": \"$username_orkut\",\n  \"AUTH_TOKEN\": \"$auth_token\"\n}" >/root/BotVPN/.vars.json
 
-    pm2 start /root/BotVPN/app.js --name sellvpn --env production -- --token "$token" --adminid "$adminid" --namastore "$namastore" --dataqris "$dataqris" --merchantid "$merchantid" --apikey "$apikey"
+    pm2 start /root/BotVPN/app.js --name sellvpn --env production -- --token "$token" --adminid "$adminid" --namastore "$namastore" --dataqris "$dataqris" --username_orkut "$username_orkut" --auth_token "$auth_token"
     pm2 save
 
     printf "\033[5A\033[0J"
